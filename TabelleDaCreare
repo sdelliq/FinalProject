@@ -1,0 +1,45 @@
+- Totali: N borrowers, N loans ,  GBV total, mean GBV (by borr and loan)
+- Totali2: N agreement , N PPT, gbv agreed and gbv paid
+
+- BORROWER LEVEL:
+- range.gbv
+- individual / corporate
+- ind/corp + range.gbv
+- solvency.pf
+- solvency.pf + range.age (pensionato + range.age)
+- solvency.pf + area
+- city/province/area
+- range.age + income
+- corp / type.pg / status.pg
+- guarantors yes/no with type guarantors and solvency.guarantor
+
+
+- LOAN LEVEL:
+- Type
+- Vintage
+- status
+- guarantors yes/no  with gbv
+- type + range.gbv
+- gbv by originator / ptf #/ cluster.ptf
+
+
+
+- AGREEMENT  / PPT:
+- status
+- status + discount
+- role
+- mean installment by amount.range
+- mean installment by amount.range and role
+- status (count  and how many installment paid and due)
+
+
+
+
+
+
+
+
+
+
+
+
