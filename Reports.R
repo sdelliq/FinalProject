@@ -32,7 +32,14 @@ tables$totals_by_ptf <-
     n.loans, gbv.original, gbv.residual, principal
   )
 
-
+tables$totals_by_originator <-
+  borrowers %>%
+  make_table(
+    super.originator, ptf,
+    "Table_originator_ptf",
+    n.loans, gbv.original, gbv.residual, principal
+  )
+tables$totals_by_originator %>% View()
 #GBV ranges with n borrowers and sum gbv.residual
 tables$borrower_gbv <- 
   borrowers %>% 
@@ -87,9 +94,33 @@ tables$borrower_area <-
              "Table_Area",
              gbv.original, gbv.residual, principal, n.loans)
 
-# - city/province/area
-# - range.age + income
-# - corp / type.pg / status.pg
+
+# guarantors yes/no  with gbv
+temp.vars$loans.guarantors <- df0$loan %>% select(-type, -status) %>% 
+  left_join(df0$guarantees, by=c("id.bor", "id.group")) %>% group_by(id.loan) %>%
+    summarise(
+      across(c(originator, ptf, cluster.ptf, gbv.original, gbv.residual, principal), first),
+      n_guarantees = sum(!is.na(id.guarantee)),
+      total_amount_guaranteed = sum(amount.guarantee),
+      type = first(factor(type,levels=c(type= "lien", "surety", "confidi", "pledge", "other"))),
+      status = first(factor(status,levels=c(type= "valid", "expired", "ineffective", "canceled"))),
+      origin.lien = as.character(origin.lien),
+      origin.lien = ifelse("judicial" %in% origin.lien & "voluntary" %in% origin.lien, NA, first(origin.lien)),
+      rank.lien=min(rank.lien),
+      .groups = "drop"
+    ) %>% distinct() %>% 
+  mutate(flag_guarantor= ifelse(n_guarantees==0, "no", "yes"),
+         range.gbv.residual = cut(gbv.residual, breaks = temp.vars$breaks, labels = temp.vars$labels, include.lowest = TRUE))
+#temp.vars$loans.guarantors %>% View
+
+tables$guarantor.with.gbv <- 
+  temp.vars$loans.guarantors %>%
+    mutate(n.loans=1) %>%
+    make_table(flag_guarantor, range.gbv.residual,
+             "Table_Guarantor_GBV",
+             gbv.original, gbv.residual, principal, n.loans)
+tables$guarantor.with.gbv %>% View()
+
 # - guarantors yes/no with type guarantors and solvency.guarantor
 
 
