@@ -33,36 +33,28 @@ update_type.pg_column <- function(data) {
     ))
 }
 
-make_table <- function(df, x, y, title, ...){
+make_table <- function(df, x, y, title, ...) {
   df %>%
-    mutate(n=1L) %>%
+    mutate(n = 1L) %>%
     group_by(!!enquo(x), !!enquo(y)) %>%
-    summarize_at(vars(n, !!!enquos(...)), sum) %>%
+    summarize_at(vars(n, !!!enquos(...)), sum, na.rm = TRUE) %>%
     ungroup() %>%
-    
-    pivot_longer(c(n, !!!enquos(...)), names_to ="item", values_to ="amount") %>%
-    
+    pivot_longer(c(n, !!!enquos(...)), names_to = "item", values_to = "amount") %>%
     rename(cluster := quo_name(ensym(x)),
-           subcluster := quo_name(ensym(y))) %>% 
-    
-    mutate(title=title, amount=as.numeric(amount)) %>%
-    
+           subcluster := quo_name(ensym(y))) %>%
+    mutate(title = title, amount = as.numeric(amount)) %>%
     select(title, cluster, subcluster, item, amount)
 }
 
-make_table_one_var <- function(df, x, title, ...){
+make_table_one_var <- function(df, x, title, ...) {
   df %>%
-    mutate(n=1L) %>%
+    mutate(n = 1L) %>%
     group_by(!!enquo(x)) %>%
-    summarize_at(vars(n, !!!enquos(...)), sum) %>%
+    summarize_at(vars(n, !!!enquos(...)), sum, na.rm = TRUE) %>%
     ungroup() %>%
-    
-    pivot_longer(c(n, !!!enquos(...)), names_to ="item", values_to ="amount") %>%
-    
-    rename(cluster := quo_name(ensym(x))) %>% 
-    
-    mutate(title=title, amount=as.numeric(amount)) %>%
-    
+    pivot_longer(c(n, !!!enquos(...)), names_to = "item", values_to = "amount") %>%
+    rename(cluster := quo_name(ensym(x))) %>%
+    mutate(title = title, amount = as.numeric(amount)) %>%
     select(title, cluster, item, amount)
 }
 
