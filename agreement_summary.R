@@ -1,18 +1,33 @@
 #I take the info from collection that's usefull to check with agreement.summary
+
 temp.vars$agreement.collection <- df0$collection %>% filter(class=="extrajudicial" & type=="agreement") %>%
   left_join(df0$agreement.summary, by=c("id.bor", "id.group"), relationship = "many-to-many") %>%
-  filter(date>date.agreement & date<date.end) %>%
+  group_by(id.bor) %>% 
+  mutate(multiple.status= ifelse(n_distinct(status) > 1, TRUE, FALSE)) %>%  ungroup() %>%
   group_by(id.agreement, id.bor) %>%
+  filter(date>date.agreement & date<date.end) %>%
   summarise(
     across(c(amount.agreement, status, residual, paid), first),
-    paid.in.collections=ifelse(status=="failed", sum(amount[date<=date.last.payment]),sum(amount)),
+    paid.in.collections= ifelse(multiple.status==TRUE ,
+                                sum(amount[date<=date.last.payment]),
+                                sum(amount)),
     date.last.paid=max(date),
     .groups = "drop"
   ) %>%
-  filter(paid!=paid.in.collections)
+  distinct() %>%
+  filter(paid!=paid.in.collections)   
+
+temp.vars$agreement.collection.exeptions <- find_duplicates_couple(temp.vars$agreement.collection, id.bor, paid.in.collections) 
+temp.vars$agreement.collection <- temp.vars$agreement.collection %>% filter(!temp.vars$agreement.collection$id.bor %in% temp.vars$agreement.collection.exeptions$id.bor)
 
 
-#There's a difference of 490k between the info in collections and the info in agreement. It's 20% of the total (2.645.861)
+#sum(temp.vars$agreement.collection$paid.in.collections) 
+  #854887.5 when filter(date>date.agreement & date<date.end) 
+  #1250128 without the filter -> it-s a big difference considering I-m not sure if i should take it, so i wont
+temp.vars$agreement.collection  %>% View()
+
+
+#There's a difference of 475k between the info in collections and the info in agreement. It's 20% of the total (2.645.861)
 #since the difference is positive, the amount paid according to agreement is bigger than the one in collections
 #Being this the case, I'll update the info of agreement from collections, since this is usually the most "correct" one
   #sum(temp.vars$agreement.collection$paid) - sum(temp.vars$agreement.collection$paid.in.collections)
@@ -45,6 +60,5 @@ temp.vars$agreement.summary <- df0$agreement.summary %>% left_join(temp.vars$agr
     )
     ) 
 #temp.vars$agreement.summary %>% View()  
-
   
   
