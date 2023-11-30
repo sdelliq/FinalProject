@@ -5,7 +5,13 @@ find_duplicates <- function(df, column){
   return(df %>% filter(duplicated({{column}})|duplicated({{column}}, fromLast=T)))
 }
 #find_duplicates(infoprov.tocheck, cf.piva) %>% View()
-
+find_duplicates_couple <- function(df, column1, column2) {
+  return(df %>% 
+           group_by({{column1}}, {{column2}}) %>%
+           filter(n() > 1) %>%
+           ungroup()
+  )
+}
 
 #All the columns that don't appear in this result, are ok to be summarised with first(column), since there's only one value
 # I filter both by row and column (if the rows are very few, you can (not) categorize in Andrea's way: 'sti cazzi')
