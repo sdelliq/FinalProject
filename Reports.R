@@ -1,6 +1,7 @@
 tables <- list()
+temp.vars$date.cut.off <- as.Date("2023-11-15")
 
-#####-- Loan and borrower level   -####
+#####-- Loan and borrower level             -####
 # Big totals of the Portfolio 
 tables$totals <- data.frame(
   title = "Table_Totals_Portafoglio",
@@ -35,11 +36,11 @@ tables$totals_by_ptf <-
 tables$totals_by_originator <-
   borrowers %>%
   make_table(
-    ptf,super.originator,
+    super.originator,ptf,
     "Table_originator_ptf",
     n.loans, gbv.original, gbv.residual, principal
   )
-tables$totals_by_originator %>% View()
+
 #GBV ranges with n borrowers and sum gbv.residual
 tables$borrower_gbv <- 
   borrowers %>% 
@@ -71,6 +72,19 @@ tables$loan_vintage_ptf <-
              title="Table_ptf_vintage",
              n.loans, gbv.original, gbv.residual, principal)
 
+#Type bor by portfolio
+tables$loan_typebor_ptf <- 
+  borrowers %>%
+  make_table(ptf, type.bor,
+             title="Table_ptf_bor",
+             n.loans, gbv.original, gbv.residual, principal)
+tables$loan_typebor_ptf %>% View()
+#corporate or individual with clusters and GBV sums
+tables$borrower_type_withGBV <- 
+  borrowers %>%
+  make_table(type.bor, range.gbv.residual,
+             "Table_TypeBor_GBV",
+             n.loans, gbv.original, gbv.residual, principal)
 
 #corporate or individual with clusters and GBV sums
 tables$borrower_type_withGBV <- 
@@ -94,7 +108,7 @@ tables$borrower_area <-
              "Table_Area",
              gbv.original, gbv.residual, principal, n.loans)
 
-###### -- Guarantors              --####
+###### -- Guarantors                        --####
 # guarantors yes/no  with gbv
 temp.vars$loans.guarantors <- df0$loan %>% select(-type, -status) %>% 
   left_join(df0$guarantees, by=c("id.bor", "id.group")) %>% group_by(id.loan) %>%
@@ -147,35 +161,11 @@ tables$guarantor.with.lien <-
 
 
 
-#### -- Agreement summary --####
-#Collections has negative residuals -> in this cases, the amount paid is never bigger than the gbv.agreement
-#In 95% of the cases, status=closed
-#Only 24 cases have a difference between the amount paid in collections and in summary
-# Nobody paid more than what they were supposed to according to collections (they did paid less, but I take it I have missing info)  
-# temp.vars$negative.residuals <- df0$agreement.summary %>% filter(residual<0) %>% left_join(df0$collection %>% filter(type=="agreement"), by=c("id.bor", "id.group")) %>%
-#   filter(date>date.start & date<date.end) %>%
-#   group_by(id.bor) %>% summarise(residual = residual, paid=paid, amount.agreement =amount.agreement, paid.in.collections = sum(amount)) %>% distinct() %>% filter(amount.agreement!=paid.in.collections) %>%
-#   mutate(amount.collection.smaller= ifelse(paid.in.collections<amount.agreement, "yes", "no")) 
+#### -- Agreement summary pre-analysis      --####
+source("agreement_summary.R") #creation of temp.vars$agreement.summary with analysis detailed
 
-temp.vars$agreement.summary <- df0$agreement.summary %>% 
-  mutate(gbv.agreement = replace_na(gbv.agreement, 0),
-         paid = ifelse(residual<0, amount.agreement, paid),
-         residual=ifelse(residual<0,0,residual),
-         
-         discount = ifelse(gbv.agreement != 0 & gbv.agreement>amount.agreement, 1- amount.agreement/gbv.agreement,0) %>% round(2),
-         range.discount = cut(
-           discount,
-           breaks = c(0.00, 0.25, 0.5, 0.6, 0.7, Inf),  # Adjusted breaks
-           labels = c("0-25%", "25-50%", "50-60%", "60-70%", "70%+"),
-           include.lowest = TRUE
-         ),
-         range.amount = cut(
-           amount.agreement,
-           breaks = c(0, 2500, 5000, 10000, 20000, Inf),  # Adjusted breaks
-           labels = c("0-2.5k", "2.5k-5k", "5k-10k", "10k-20k", "20k+"),
-           include.lowest = TRUE
-         )
-  )
+#### -- Agreement summary tables creation   --####
+
 #temp.vars$agreement.summary %>% View()
 
 
@@ -203,21 +193,21 @@ tables$agrement.amountRange <-
   make_table_one_var(range.amount,
              "Table_Agreement_amountRange",
              gbv.agreement, amount.agreement, paid, n.instalment)
-tables$agrement.amountRange %>% View()
 
-#### -- PPT summary --####
+
+#### -- PPT summary pre-analysis            --####
 #35 borrowers have a higher amount of paid in ppt.summary than in collections. 
 #the sum of paid not considering them is 730k, considering them is 656k. Considering the amount PPT and amount residual it makes more sense to leave the Paid as it was, and not take the amount from collection
-temp.vars$dif.amount <- df0$ppt.summary %>% left_join(df0$collection %>% filter(type=="ppt"), by = join_by(id.bor, id.group)) %>% 
-  filter(date>date.start & date<date.end) %>% 
-  group_by(id.bor) %>%
-  summarise(
-    paid.in.ppt = first(paid),
-    paid.in.collections = sum(amount),
-    date.start=first(date.start)
-  ) %>% filter(paid.in.ppt != paid.in.collections) %>% mutate(diff= paid.in.collections-paid.in.ppt) 
+# temp.vars$dif.amount <- df0$ppt.summary %>% left_join(df0$collection %>% filter(type=="ppt"), by = join_by(id.bor, id.group)) %>% 
+#   filter(date>date.start & date<date.end) %>% 
+#   group_by(id.bor) %>%
+#   summarise(
+#     paid.in.ppt = first(paid),
+#     paid.in.collections = sum(amount),
+#     date.start=first(date.start)
+#   ) %>% filter(paid.in.ppt != paid.in.collections) %>% mutate(diff= paid.in.collections-paid.in.ppt) 
 
-
+#### -- PPT summary tables creation --####
 temp.vars$ppt.summary <- df0$ppt.summary %>% 
   mutate(
     
@@ -248,8 +238,67 @@ tables$ppt.year <-
                      "Table_PPT_Year",
                      amount.ppt, paid, residual) %>% mutate(cluster= as.character(cluster))
 
+temp.vars$collections <- df0$collection %>% group_by(id.bor, id.group, class, type) %>% 
+  summarise(
+    date.first.payment=min(date),
+    date.last.payment= max(date),
+    total.amount=sum(amount),
+    .groups = "drop"
+  ) 
+
+temp.vars$collections.dups <- find_duplicates(temp.vars$collections, id.bor) %>% group_by(id.bor) %>% 
+  filter("judicial" %in% class & "extrajudicial"%in% class) 
+
+temp.vars$collections <- temp.vars$collections %>% group_by(id.bor, id.group) %>%
+  summarise(
+    date.first.payment=min(date.first.payment),
+    date.last.payment= max(date.last.payment),
+    total.amount=sum(total.amount),
+    class =first(factor(class, levels = c("judicial", "extrajudicial"))),
+    type= first(factor(type, levels = c("ppt", "agreement", "spontaneous"))),
+    .groups = "drop"
+  ) %>% mutate(
+    range.amount = cut(
+      total.amount,
+      breaks = c(0, 2500, 5000, 10000, 20000, Inf),  # Adjusted breaks
+      labels = c("0-2.5k", "2.5k-5k", "5k-10k", "10k-20k", "20k+"),
+      include.lowest = TRUE
+    )
+  )
+#temp.vars$collections %>% View()
+
+#I wanted to see the loans (when the borrower only has one loan, so I'm sure of which loan we're talking about) but there are only 132, it isn't worth it
+df0$collection %>%
+  left_join(df0$loan, by = c("id.bor", "id.group")) %>%
+  group_by(id.bor, id.group) %>%
+  filter(n() == 1) %>%  # Retain rows where there's only one match
+  ungroup() #%>% View()
+
+tables$collections.class.type <- 
+  temp.vars$collections %>%
+  make_table(class, type,
+             "Table_Collection_Class_Type",
+             total.amount)
+
+
+tables$collections.amountRange <- 
+  temp.vars$collections %>%
+  make_table(class,range.amount,
+                     "Table_Collection_amountRange",
+                     total.amount)
+
+tables$collections.dups <- 
+  temp.vars$collections.dups %>%
+  make_table(class, type,
+             "Table_Collection_dup_amountRange",
+             total.amount)
+
+
+
 #####
 combined_tables <- bind_rows(tables) %>%
   select(title, cluster, subcluster, item, amount)
 
 write.csv(combined_tables, "data.csv")
+
+
