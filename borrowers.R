@@ -26,7 +26,7 @@ borrowers <- df0$loan %>%
               select(id.counterparty, id.bor, name), 
             by="id.bor") %>%
   
-  left_join(link0$counterparty.entity, by="id.counterparty") %>%
+  left_join(link0$counterparty.entity, by="id.counterparty", relationship = "many-to-many") %>%
   
   left_join(df0$entity %>% 
               mutate(status.bor=coalesce(status.pg, solvency.pf)) %>% 
