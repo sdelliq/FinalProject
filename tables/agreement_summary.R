@@ -10,7 +10,7 @@
 #Here I'm trying to analyse which dates I want to take from collections
 #sum(temp.vars$agreement.collection$paid) - sum(temp.vars$agreement.collection$paid.in.collections) 
   #NO FILTER → 767  → closer to the weird residuals
-  #FILTER date>date.agreement → amount most accurate(772k)
+  #FILTER date>date.agreement → 772k
   #filter(date>date.agreement & date<date.end) → 497k 
 # So I decide not to filter at the beggining, mostly since I'm filtering the amount when a borrower has more than one agreement
 #####
