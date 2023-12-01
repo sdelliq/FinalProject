@@ -1,5 +1,5 @@
 tables <- list()
-date.cutoff <- as.Date("2023-11-15")
+
 
 #####-- Loan and borrower level             -####
 # Big totals of the Portfolio 
@@ -57,6 +57,11 @@ tables$loan_status_ptf <-
                title="Table_ptf_status",
                n.loans, gbv.original, gbv.residual, principal)
 
+tables$loan_status_updated_ptf <- 
+  df0$loan %>% 
+  make_table(ptf, status.updated,
+             title="Table_ptf_updated_status")
+
 #Loans type
 tables$loan_type_ptf <- 
   df0$loan %>% 
@@ -95,17 +100,25 @@ tables$borrower_type_withGBV <-
 
 
 #In the table it's neccesary to filter by individual being I want to see the solvency(and it's for pf)
-tables$borrower_solvency <- 
+tables$borrower_solvency_pf <- 
   borrowers %>%
-  make_table(type.bor, status.bor,
-             "Table_Solvency_GBV",
+  filter(type.bor=="individual") %>%
+  make_table(ptf, status.bor,
+             "Table_Solvency_PF",
+             gbv.original, gbv.residual, principal, n.loans)
+
+tables$borrower_solvency_pg <- 
+  borrowers %>%
+  filter(type.bor=="corporate") %>%
+  make_table(ptf, status.bor,
+             "Table_Solvency_PG",
              gbv.original, gbv.residual, principal, n.loans)
 
 # - area
 tables$borrower_area <- 
   borrowers %>%
-  make_table_one_var(area,
-             "Table_Area",
+  make_table(ptf, area,
+             "Table_PTF_Area",
              gbv.original, gbv.residual, principal, n.loans)
 
 ###### -- Guarantors                        --####
@@ -128,17 +141,18 @@ temp.vars$loans.guarantors <- df0$loan %>% select(-type, -status) %>%
       origin.lien = ifelse("judicial" %in% origin.lien & "voluntary" %in% origin.lien, NA, first(origin.lien)),
       rank.lien=min(rank.lien),
       .groups = "drop"
-    ) %>% distinct() 
-temp.vars$loans.guarantors <- df0$loan %>% 
-  filter(!id.loan %in% temp.vars$loans.guarantors$id.loan) %>% 
-  bind_rows(temp.vars$loans.guarantors) %>%
-  mutate(flag_guarantor= ifelse(is.na(n_guarantees), "no", "yes"),
-         range.gbv.residual = cut(gbv.residual, breaks = temp.vars$breaks, labels = temp.vars$labels, include.lowest = TRUE))
+    ) %>% distinct() %>%
+  mutate(range.gbv.residual = cut(gbv.residual, breaks = temp.vars$breaks, labels = temp.vars$labels, include.lowest = TRUE))
+# temp.vars$loans.guarantors <- df0$loan %>% 
+#   filter(!id.loan %in% temp.vars$loans.guarantors$id.loan) %>% 
+#   #bind_rows(temp.vars$loans.guarantors) %>%
+#   mutate(#flag_guarantor= ifelse(is.na(n_guarantees), "no", "yes"),
+#          range.gbv.residual = cut(gbv.residual, breaks = temp.vars$breaks, labels = temp.vars$labels, include.lowest = TRUE))
 #temp.vars$loans.guarantors %>% View
 
 tables$guarantor.with.gbv <- 
   temp.vars$loans.guarantors %>%
-    make_table(flag_guarantor, range.gbv.residual,
+    make_table(ptf, range.gbv.residual,
              "Table_Guarantor_GBV",
              gbv.original, gbv.residual, principal,n_guarantees, total_amount_guaranteed)
 
@@ -146,10 +160,11 @@ tables$guarantor.with.gbv <-
 # - guarantors yes/no with type guarantors and solvency.guarantor
 tables$guarantor.with.type <- 
   temp.vars$loans.guarantors %>%
-  make_table(flag_guarantor, type,
+  make_table(ptf, type,
              "Table_Guarantor_type",
              gbv.original, gbv.residual, principal, n_guarantees, total_amount_guaranteed)
-tables$guarantor.with.type %>% View()
+
+
 # tables$guarantor.with.status <- 
 #   temp.vars$loans.guarantors %>%
 #   mutate(n.loans=1) %>%
@@ -160,10 +175,9 @@ tables$guarantor.with.type %>% View()
 tables$guarantor.with.lien <- 
   temp.vars$loans.guarantors %>%
   filter(type=="lien") %>%
-  mutate(n.loans=1) %>%
   make_table(origin.lien, rank.lien,
              "Table_Guarantor_lien",
-             gbv.original, gbv.residual, principal, n.loans) %>% mutate(subcluster = as.character(subcluster))
+             gbv.original, gbv.residual, principal) %>% mutate(subcluster = as.character(subcluster))
 
 
 
@@ -178,14 +192,14 @@ source("tables/agreement_summary.R") #creation of temp.vars$agreement.summary wi
 
 tables$agrement.status <- 
   temp.vars$agreement.summary %>%
-  make_table_one_var(status,
+  make_table(ptf, status,
              "Table_Agreement_Status",
              gbv.agreement, amount.agreement, paid)
 
 
 tables$agrement.discount <- 
   temp.vars$agreement.summary %>%
-  make_table_one_var(range.discount,
+  make_table(ptf, range.discount,
                      "Table_Agreement_discount",
                      gbv.agreement, amount.agreement, paid)
 
@@ -206,20 +220,9 @@ tables$agrement.amountRange <-
 source("tables/ppt_summary.R") #creation of temp.vars$ppt_summary with analysis detailed
 
 #### -- PPT summary tables creation --####
-temp.vars$ppt.summary <- df0$ppt.summary %>% 
-  mutate(
-    
-     range.amount.ppt = cut(
-       amount.ppt,
-       breaks = c(0, 5000, 10000, 15000, 20000, Inf),  # Adjusted breaks
-       labels = c("0-5k", "5k-10k", "10k-15k", "15k-20k", "20k+"),
-       include.lowest = TRUE
-     )
-  )
-temp.vars$ppt.summary %>% View()
 tables$ppt.status <- 
   temp.vars$ppt.summary %>%
-  make_table_one_var(status,
+  make_table(ptf, status,
                      "Table_PPT_Status",
                      amount.ppt, paid, residual)
 
@@ -229,12 +232,14 @@ tables$ppt.range.amount <-
                      "Table_PPT_Range_Amount",
                      amount.ppt, paid, residual)
 
-
 tables$ppt.year <- 
   temp.vars$ppt.summary %>%
   make_table_one_var(year.ppt,
                      "Table_PPT_Year",
                      amount.ppt, paid, residual) %>% mutate(cluster= as.character(cluster))
+
+#Collections
+#### -- Collections  ###########
 
 temp.vars$collections <- df0$collection %>% group_by(id.bor, id.group, class, type) %>% 
   summarise(
@@ -244,8 +249,18 @@ temp.vars$collections <- df0$collection %>% group_by(id.bor, id.group, class, ty
     .groups = "drop"
   ) 
 
+temp.vars$collections.summary <- bind_rows(temp.vars$agreement.summary %>% mutate(class="extrajudicial", type="agreement"), temp.vars$ppt.summary %>% mutate(class="judicial", type="pdr"))
+temp.vars$collections.not.agr.pdr <- temp.vars$collections %>% filter(!id.bor %in% temp.vars$collections.summary$id.bor) %>%
+  left_join(df0$loan %>% select(id.bor, id.group, ptf), by=c("id.bor", "id.group")) %>% 
+  distinct()
+temp.vars$collections.summary <- bind_rows(temp.vars$collections.summary,temp.vars$collections.not.agr.pdr)
+
+
+####Other stuff
+
 temp.vars$collections.dups <- find_duplicates(temp.vars$collections, id.bor) %>% group_by(id.bor) %>% 
   filter("judicial" %in% class & "extrajudicial"%in% class) 
+#there's only 30 duplicates with judicial and extrajudicial
 
 temp.vars$collections <- temp.vars$collections %>% group_by(id.bor, id.group) %>%
   summarise(

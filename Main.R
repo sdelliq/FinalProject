@@ -2,7 +2,7 @@ source("Library.R")
 source("Functions.R")
 
 temp.vars <- list()
-
+date.cutoff <- as.Date("2023-11-15")
 ###-----------------------------------------------------------------------###
 #-----          - Reading the files                                         -----         
 ###-----------------------------------------------------------------------###
@@ -29,6 +29,11 @@ link0 <- list(
 source("tables/borrowers.R")
 
 
-
+df0$loan <- df0$loan %>% 
+  mutate(status.updated = case_when(
+    status == "utp" & 
+      (as.numeric(difftime(date.cutoff, date.status, units = "weeks")) >= 104) ~ "bad",  # 2 years = 104 weeks
+    TRUE ~ as.character(status)
+  ))
 
 

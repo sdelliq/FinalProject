@@ -33,6 +33,13 @@ temp.vars$ppt.summary <- df0$ppt.summary %>% left_join(temp.vars$ppt.collection 
     date.last.payment = as.Date(date.last.payment),
     residual =ifelse(residual==0,0,amount.ppt-paid),
     
+    range.amount.ppt = cut(
+      amount.ppt,
+      breaks = c(0, 5000, 10000, 15000, 20000, Inf),  # Adjusted breaks
+      labels = c("0-5k", "5k-10k", "10k-15k", "15k-20k", "20k+"),
+      include.lowest = TRUE
+    ),
+    
     status.calculated = case_when( 
       (status=="closed" & residual ==0 & amount.ppt<paid) | paid == amount.ppt | residual==0 ~ 'closed',
       (paid == 0) &  as.numeric(difftime(date.cutoff, date.start, units = "days")) / 30.44 > qt.months ~ 'failed',
@@ -46,3 +53,11 @@ temp.vars$ppt.summary <- df0$ppt.summary %>% left_join(temp.vars$ppt.collection 
 #temp.vars$ppt.summary %>% filter(status!=status.calculated) %>% View()
 #19 different cases. I still have 28 closed, but I now have 68 active instead of 85 and 52 failed instead of 35. I take them, they make sense
 temp.vars$ppt.summary <- temp.vars$ppt.summary %>% select(-status, status=status.calculated)
+
+#I take the cluster from loans (I know each borrower only exists in one ptf)
+temp.vars$ppt.loan <- temp.vars$ppt.summary %>% select(id.ppt, id.bor, id.group) %>%
+  left_join(df0$loan %>% select(id.bor, id.group, ptf), by=c("id.bor", "id.group")) %>% 
+  group_by(id.ppt) %>% summarise(
+    ptf=first(ptf)
+  )
+temp.vars$ppt.summary <- temp.vars$ppt.summary %>% left_join(temp.vars$ppt.loan, by="id.ppt")

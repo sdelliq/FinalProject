@@ -84,6 +84,14 @@ temp.vars$agreement.summary <- df0$agreement.summary %>% left_join(temp.vars$agr
     
   )
 
+#I take the cluster from loans (I know each borrower only exists in one ptf)
+temp.vars$agreement.loan <- temp.vars$agreement.summary %>% select(id.agreement, id.bor, id.group) %>%
+  left_join(df0$loan %>% select(id.bor, id.group, ptf), by=c("id.bor", "id.group")) %>% 
+    group_by(id.agreement) %>% summarise(
+      ptf=first(ptf)
+    )
+temp.vars$agreement.summary <- temp.vars$agreement.summary %>% left_join(temp.vars$agreement.loan, by="id.agreement")
+
 #temp.vars$agreement.summary %>% View()  
 
 
