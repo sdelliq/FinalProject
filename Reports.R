@@ -1,5 +1,5 @@
 tables <- list()
-temp.vars$date.cut.off <- as.Date("2023-11-15")
+date.cutoff <- as.Date("2023-11-01")
 
 #####-- Loan and borrower level             -####
 # Big totals of the Portfolio 
