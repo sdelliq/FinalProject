@@ -1,5 +1,5 @@
 tables <- list()
-date.cutoff <- as.Date("2023-11-01")
+date.cutoff <- as.Date("2023-11-15")
 
 #####-- Loan and borrower level             -####
 # Big totals of the Portfolio 
@@ -78,7 +78,7 @@ tables$loan_typebor_ptf <-
   make_table(ptf, type.bor,
              title="Table_ptf_bor",
              n.loans, gbv.original, gbv.residual, principal)
-tables$loan_typebor_ptf %>% View()
+
 #corporate or individual with clusters and GBV sums
 tables$borrower_type_withGBV <- 
   borrowers %>%
@@ -111,9 +111,15 @@ tables$borrower_area <-
 ###### -- Guarantors                        --####
 # guarantors yes/no  with gbv
 temp.vars$loans.guarantors <- df0$loan %>% select(-type, -status) %>% 
-  left_join(df0$guarantees, by=c("id.bor", "id.group")) %>% group_by(id.loan) %>%
+  left_join(df0$guarantees, by=c("id.bor", "id.group"), relationship = "many-to-many") %>% 
+  filter(status == "valid" | is.na(status)) %>%
+  left_join(link0$guarantee.entity, by="id.guarantee",relationship = "many-to-many") %>% 
+  left_join(df0$entity, by="id.entity") %>%
+  filter(solvency.pf != "deceased" | solvency.pf != "insolvent" | status.pg != "canceled" | status.pg != "ceased") %>%
+  select(id.loan, ptf, cluster.ptf, gbv.original, gbv.residual, principal, id.guarantee, type, amount.guarantee, status, origin.lien, rank.lien) %>% distinct() %>%
+  group_by(id.loan) %>%
     summarise(
-      across(c(originator, ptf, cluster.ptf, gbv.original, gbv.residual, principal), first),
+      across(c(ptf, cluster.ptf, gbv.original, gbv.residual, principal), first),
       n_guarantees = sum(!is.na(id.guarantee)),
       total_amount_guaranteed = sum(amount.guarantee),
       type = first(factor(type,levels=c(type= "lien", "surety", "confidi", "pledge", "other"))),
@@ -122,33 +128,34 @@ temp.vars$loans.guarantors <- df0$loan %>% select(-type, -status) %>%
       origin.lien = ifelse("judicial" %in% origin.lien & "voluntary" %in% origin.lien, NA, first(origin.lien)),
       rank.lien=min(rank.lien),
       .groups = "drop"
-    ) %>% distinct() %>% 
-  mutate(flag_guarantor= ifelse(n_guarantees==0, "no", "yes"),
+    ) %>% distinct() 
+temp.vars$loans.guarantors <- df0$loan %>% 
+  filter(!id.loan %in% temp.vars$loans.guarantors$id.loan) %>% 
+  bind_rows(temp.vars$loans.guarantors) %>%
+  mutate(flag_guarantor= ifelse(is.na(n_guarantees), "no", "yes"),
          range.gbv.residual = cut(gbv.residual, breaks = temp.vars$breaks, labels = temp.vars$labels, include.lowest = TRUE))
 #temp.vars$loans.guarantors %>% View
 
 tables$guarantor.with.gbv <- 
   temp.vars$loans.guarantors %>%
-    mutate(n.loans=1) %>%
     make_table(flag_guarantor, range.gbv.residual,
              "Table_Guarantor_GBV",
-             gbv.original, gbv.residual, principal, n.loans)
+             gbv.original, gbv.residual, principal,n_guarantees, total_amount_guaranteed)
 
 
 # - guarantors yes/no with type guarantors and solvency.guarantor
 tables$guarantor.with.type <- 
   temp.vars$loans.guarantors %>%
-  mutate(n.loans=1) %>%
   make_table(flag_guarantor, type,
              "Table_Guarantor_type",
-             gbv.original, gbv.residual, principal, n.loans, n_guarantees)
-
-tables$guarantor.with.status <- 
-  temp.vars$loans.guarantors %>%
-  mutate(n.loans=1) %>%
-  make_table(flag_guarantor, status,
-             "Table_Guarantor_Status",
-             gbv.original, gbv.residual, principal, n.loans, n_guarantees)
+             gbv.original, gbv.residual, principal, n_guarantees, total_amount_guaranteed)
+tables$guarantor.with.type %>% View()
+# tables$guarantor.with.status <- 
+#   temp.vars$loans.guarantors %>%
+#   mutate(n.loans=1) %>%
+#   make_table(flag_guarantor, status,
+#              "Table_Guarantor_Status",
+#              gbv.original, gbv.residual, principal, n.loans, n_guarantees)
 
 tables$guarantor.with.lien <- 
   temp.vars$loans.guarantors %>%
@@ -162,7 +169,7 @@ tables$guarantor.with.lien <-
 
 
 #### -- Agreement summary pre-analysis      --####
-source("agreement_summary.R") #creation of temp.vars$agreement.summary with analysis detailed
+source("tables/agreement_summary.R") #creation of temp.vars$agreement.summary with analysis detailed
 
 #### -- Agreement summary tables creation   --####
 
@@ -196,16 +203,7 @@ tables$agrement.amountRange <-
 
 
 #### -- PPT summary pre-analysis            --####
-#35 borrowers have a higher amount of paid in ppt.summary than in collections. 
-#the sum of paid not considering them is 730k, considering them is 656k. Considering the amount PPT and amount residual it makes more sense to leave the Paid as it was, and not take the amount from collection
-# temp.vars$dif.amount <- df0$ppt.summary %>% left_join(df0$collection %>% filter(type=="ppt"), by = join_by(id.bor, id.group)) %>% 
-#   filter(date>date.start & date<date.end) %>% 
-#   group_by(id.bor) %>%
-#   summarise(
-#     paid.in.ppt = first(paid),
-#     paid.in.collections = sum(amount),
-#     date.start=first(date.start)
-#   ) %>% filter(paid.in.ppt != paid.in.collections) %>% mutate(diff= paid.in.collections-paid.in.ppt) 
+source("tables/ppt_summary.R") #creation of temp.vars$ppt_summary with analysis detailed
 
 #### -- PPT summary tables creation --####
 temp.vars$ppt.summary <- df0$ppt.summary %>% 
