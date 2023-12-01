@@ -5,11 +5,12 @@ find_duplicates <- function(df, column){
   return(df %>% filter(duplicated({{column}})|duplicated({{column}}, fromLast=T)))
 }
 #find_duplicates(infoprov.tocheck, cf.piva) %>% View()
+
+
 find_duplicates_couple <- function(df, column1, column2) {
   return(df %>% 
-           group_by({{column1}}, {{column2}}) %>%
-           filter(n() > 1) %>%
-           ungroup()
+           filter(duplicated(select(., {{ column1 }}, {{ column2 }})) | 
+                    duplicated(select(., {{ column1 }}, {{ column2 }}), fromLast = TRUE))
   )
 }
 
