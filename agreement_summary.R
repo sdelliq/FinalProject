@@ -1,15 +1,29 @@
-#I take the info from collection that's usefull to check with agreement.summary
+#This is the red flag that first caught my eye:
+#df0$agreement.summary %>% filter(residual<0) %>% summarise(negative.residuals = sum(residual)*(-1))
+# € 752.856 were paid extra according to agreement.summary -> so I'll go check in collections what makes sense
 
+#n_distinct(df0$agreement.summary$id.bor) == df0$agreement.summary %>% filter(id.bor %in% df0$loan$id.bor) %>%  summarise(n.borrowers = n_distinct(id.bor))
+#all my borrowers in agreement.summary exist on loans
+
+#I take the info from collection that's usefull to check with agreement.summary
+#####
+#Here I'm trying to analyse which dates I want to take from collections
+#sum(temp.vars$agreement.collection$paid) - sum(temp.vars$agreement.collection$paid.in.collections) 
+  #NO FILTER → 767  → closer to the weird residuals
+  #FILTER date>date.agreement → amount most accurate(772k)
+  #filter(date>date.agreement & date<date.end) → 497k 
+# So I decide not to filter at the beggining, mostly since I'm filtering the amount when a borrower has more than one agreement
+#####
 temp.vars$agreement.collection <- df0$collection %>% filter(class=="extrajudicial" & type=="agreement") %>%
   left_join(df0$agreement.summary, by=c("id.bor", "id.group"), relationship = "many-to-many") %>%
   group_by(id.bor) %>% 
-  mutate(multiple.status= ifelse(n_distinct(status) > 1, TRUE, FALSE)) %>%  ungroup() %>%
+  mutate(multiple.agreements= ifelse(n_distinct(id.agreement) > 1, TRUE, FALSE)) %>%  ungroup() %>%
   group_by(id.agreement, id.bor) %>%
-  filter(date>date.agreement & date<date.end) %>%
+  #filter(date>date.agreement) %>% # & date<date.end) %>%
   summarise(
     across(c(amount.agreement, status, residual, paid), first),
-    paid.in.collections= ifelse(multiple.status==TRUE ,
-                                sum(amount[date<=date.last.payment]),
+    paid.in.collections= ifelse(multiple.agreements==TRUE ,
+                                sum(amount[date>date.agreement & date<=date.last.payment]), #Usually then there are two status, one failed or closedand I can take the date of the last.payment 
                                 sum(amount)),
     date.last.paid=max(date),
     .groups = "drop"
@@ -17,22 +31,18 @@ temp.vars$agreement.collection <- df0$collection %>% filter(class=="extrajudicia
   distinct() %>%
   filter(paid!=paid.in.collections)   
 
+#I see the cases in which the previous logic didn't work well → In this case only one weirdo with two active agreements at the same time
 temp.vars$agreement.collection.exeptions <- find_duplicates_couple(temp.vars$agreement.collection, id.bor, paid.in.collections) 
+#temp.vars$agreement.collection.exeptions %>% View()
+#I decide to ignore the cases in which the amount paid in collections is duplicated (it's not clear to which agreement was the paid to) 
 temp.vars$agreement.collection <- temp.vars$agreement.collection %>% filter(!temp.vars$agreement.collection$id.bor %in% temp.vars$agreement.collection.exeptions$id.bor)
 
-
-#sum(temp.vars$agreement.collection$paid.in.collections) 
-  #854887.5 when filter(date>date.agreement & date<date.end) 
-  #1250128 without the filter -> it-s a big difference considering I-m not sure if i should take it, so i wont
-temp.vars$agreement.collection  %>% View()
+#sum(temp.vars$agreement.collection$paid) - sum(temp.vars$agreement.collection$paid.in.collections) # = 775k → 18% of the total (2.645.861) #sum(df0$agreement.summary$paid) 
+  #The amount paid in agreement is 775k bigger than the one in collections. Considering the 752k of negative residuals, I decide to keep the info from collections
 
 
-#There's a difference of 475k between the info in collections and the info in agreement. It's 20% of the total (2.645.861)
-#since the difference is positive, the amount paid according to agreement is bigger than the one in collections
-#Being this the case, I'll update the info of agreement from collections, since this is usually the most "correct" one
-  #sum(temp.vars$agreement.collection$paid) - sum(temp.vars$agreement.collection$paid.in.collections)
-  #sum(df0$agreement.summary$paid)
-
+#Here I create my agreement.summary to then create reports based on it :)
+qt.months <- 6 #I say an agreement failed when they didn't pay for 6 months
 temp.vars$agreement.summary <- df0$agreement.summary %>% left_join(temp.vars$agreement.collection %>% 
                                                                      select(id.agreement, paid.in.collections,date.last.paid), 
                                     by=c("id.agreement") ) %>% 
@@ -44,7 +54,9 @@ temp.vars$agreement.summary <- df0$agreement.summary %>% left_join(temp.vars$agr
     residual= ifelse(residual<0, amount.agreement - paid, residual),
     date.last.payment = ifelse(date.last.paid>date.last.payment, date.last.paid, date.last.payment),
     date.last.payment = as.Date(date.last.payment),
-    
+    date.end = ifelse(is.na(date.end), date.start %m+% months(length), date.end), #if it's NA I calculate it
+    date.end=as.Date(date.end),
+      
     discount = ifelse(gbv.agreement != 0 & gbv.agreement>amount.agreement, 1- amount.agreement/gbv.agreement,0) %>% round(2),
     range.discount = cut(
       discount,
@@ -57,8 +69,22 @@ temp.vars$agreement.summary <- df0$agreement.summary %>% left_join(temp.vars$agr
       breaks = c(0, 2500, 5000, 10000, 20000, Inf),  # Adjusted breaks
       labels = c("0-2.5k", "2.5k-5k", "5k-10k", "10k-20k", "20k+"),
       include.lowest = TRUE
+    ),
+    status = case_when( 
+      date.start > date.cutoff ~ 'proposal',
+      (paid == 0) &  as.numeric(difftime(date.cutoff, date.start, units = "days")) / 30.44 > qt.months ~ 'failed',
+      (paid == 0) &  as.numeric(difftime(date.cutoff, date.start, units = "days")) / 30.44 <  qt.months ~ 'active',
+      is.na(date.last.payment) ~ status,
+      (paid != amount.agreement) &  as.numeric(difftime(date.cutoff, date.last.payment, units = "days")) / 30.44 > qt.months ~ 'failed',
+      (paid != amount.agreement) &  as.numeric(difftime(date.cutoff, date.last.payment, units = "days")) / 30.44 < qt.months ~ 'active',
+      paid == amount.agreement ~ 'closed',
+      TRUE ~ status
     )
-    ) 
+    #With my calculations I have 92 active instead of 85, 249 instead of 252, and 334 instead of 338 → Only 14 changes → I'll keep them
+    
+  )
+
 #temp.vars$agreement.summary %>% View()  
-  
-  
+
+
+
