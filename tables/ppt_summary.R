@@ -61,3 +61,5 @@ temp.vars$ppt.loan <- temp.vars$ppt.summary %>% select(id.ppt, id.bor, id.group)
     ptf=first(ptf)
   )
 temp.vars$ppt.summary <- temp.vars$ppt.summary %>% left_join(temp.vars$ppt.loan, by="id.ppt")
+
+created.tables$ppt.summary <- temp.vars$ppt.summary

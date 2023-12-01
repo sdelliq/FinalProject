@@ -95,4 +95,4 @@ temp.vars$agreement.summary <- temp.vars$agreement.summary %>% left_join(temp.va
 #temp.vars$agreement.summary %>% View()  
 
 
-
+created.tables$agreement.summary <- temp.vars$agreement.summary
