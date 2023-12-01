@@ -1,5 +1,5 @@
 tables <- list()
-
+created.tables <- list()
 
 #####-- Loan and borrower level             -####
 # Big totals of the Portfolio 
@@ -245,66 +245,61 @@ temp.vars$collections <- df0$collection %>% group_by(id.bor, id.group, class, ty
   summarise(
     date.first.payment=min(date),
     date.last.payment= max(date),
-    total.amount=sum(amount),
-    .groups = "drop"
-  ) 
-
-temp.vars$collections.summary <- bind_rows(temp.vars$agreement.summary %>% mutate(class="extrajudicial", type="agreement"), temp.vars$ppt.summary %>% mutate(class="judicial", type="pdr"))
-temp.vars$collections.not.agr.pdr <- temp.vars$collections %>% filter(!id.bor %in% temp.vars$collections.summary$id.bor) %>%
-  left_join(df0$loan %>% select(id.bor, id.group, ptf), by=c("id.bor", "id.group")) %>% 
-  distinct()
-temp.vars$collections.summary <- bind_rows(temp.vars$collections.summary,temp.vars$collections.not.agr.pdr)
-
-
-####Other stuff
-
-temp.vars$collections.dups <- find_duplicates(temp.vars$collections, id.bor) %>% group_by(id.bor) %>% 
-  filter("judicial" %in% class & "extrajudicial"%in% class) 
-#there's only 30 duplicates with judicial and extrajudicial
-
-temp.vars$collections <- temp.vars$collections %>% group_by(id.bor, id.group) %>%
-  summarise(
-    date.first.payment=min(date.first.payment),
-    date.last.payment= max(date.last.payment),
-    total.amount=sum(total.amount),
-    class =first(factor(class, levels = c("judicial", "extrajudicial"))),
-    type= first(factor(type, levels = c("ppt", "agreement", "spontaneous"))),
+    paid=sum(amount),
     .groups = "drop"
   ) %>% mutate(
     range.amount = cut(
-      total.amount,
+      paid,
       breaks = c(0, 2500, 5000, 10000, 20000, Inf),  # Adjusted breaks
       labels = c("0-2.5k", "2.5k-5k", "5k-10k", "10k-20k", "20k+"),
       include.lowest = TRUE
-    )
-  )
-#temp.vars$collections %>% View()
+    ))
 
-#I wanted to see the loans (when the borrower only has one loan, so I'm sure of which loan we're talking about) but there are only 132, it isn't worth it
-df0$collection %>%
-  left_join(df0$loan, by = c("id.bor", "id.group")) %>%
-  group_by(id.bor, id.group) %>%
-  filter(n() == 1) %>%  # Retain rows where there's only one match
-  ungroup() #%>% View()
+temp.vars$collections.summary <- bind_rows(
+  created.tables$agreement.summary %>% 
+    select(id.bor, year=year.agreement,gbv.agreement, amount.expected=amount.agreement, paid, ptf) %>%
+    mutate(class="extrajudicial", type="agreement"), 
+  created.tables$ppt.summary %>% 
+    select(id.bor, year=year.ppt, amount.expected=amount.ppt, paid, ptf) %>%
+    mutate(class="judicial", type="pdr")
+  )
+
+temp.vars$collections.not.agr.pdr <- temp.vars$collections %>% 
+  filter(!id.bor %in% temp.vars$collections.summary$id.bor) %>%
+  left_join(df0$loan %>% select(id.bor, id.group, ptf), by=c("id.bor", "id.group")) %>% 
+  mutate(year=as.numeric(format(date.first.payment, "%Y"))) %>%
+  select(id.bor, class, type, paid, year) %>% 
+  distinct()
+
+created.tables$collections.summary <- bind_rows(temp.vars$collections.summary,temp.vars$collections.not.agr.pdr)
+
+
+# find_duplicates(created.tables$collections.summary, id.bor) %>% group_by(id.bor) %>% filter("judicial" %in% class & "extrajudicial"%in% class) %>% View()
+# there's 34 bors with judicial and extrajudicial info
+
+
+tables$collections.class.type.ptf <- 
+  created.tables$collections.summary %>%
+  #mutate(class.type = paste(class, type, sep = "-")) %>%
+  mutate(class.type = ifelse(!is.na(class), paste(class, type, sep = "-"), NA)) %>%
+  make_table(ptf, class.type, 
+             "Table_Collection_Class_Type_PTF", 
+             gbv.agreement, amount.expected, paid)
+tables$collections.class.type.ptf %>% View()
 
 tables$collections.class.type <- 
   temp.vars$collections %>%
-  make_table(class, type,
-             "Table_Collection_Class_Type",
-             total.amount)
-
+  make_table(class, type, 
+             "Table_Collection_Class_Type", 
+             paid)
 
 tables$collections.amountRange <- 
   temp.vars$collections %>%
   make_table(class,range.amount,
                      "Table_Collection_amountRange",
-                     total.amount)
+                     paid)
 
-tables$collections.dups <- 
-  temp.vars$collections.dups %>%
-  make_table(class, type,
-             "Table_Collection_dup_amountRange",
-             total.amount)
+
 
 
 
