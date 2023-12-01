@@ -1,4 +1,30 @@
 colSums(is.na(df0$loan))
+#I wanted to see the loans (when the borrower only has one loan, so I'm sure of which loan we're talking about) but there are only 132, it isn't worth it
+df0$collection %>%
+  left_join(df0$loan, by = c("id.bor", "id.group")) %>%
+  group_by(id.bor, id.group) %>%
+  filter(n() == 1) %>%  # Retain rows where there's only one match
+  ungroup() #%>% View()
+
+#Previous code to only analyse collections
+temp.vars$collections <- temp.vars$collections %>% group_by(id.bor, id.group) %>%
+  summarise(
+    date.first.payment=min(date.first.payment),
+    date.last.payment= max(date.last.payment),
+    total.amount=sum(total.amount),
+    class =first(factor(class, levels = c("judicial", "extrajudicial"))),
+    type= first(factor(type, levels = c("ppt", "agreement", "spontaneous"))),
+    .groups = "drop"
+  ) %>% mutate(
+    range.amount = cut(
+      total.amount,
+      breaks = c(0, 2500, 5000, 10000, 20000, Inf),  # Adjusted breaks
+      labels = c("0-2.5k", "2.5k-5k", "5k-10k", "10k-20k", "20k+"),
+      include.lowest = TRUE
+    )
+  )
+#temp.vars$collections %>% View()
+
 
 #Previous code of agreement.collection
 temp.vars$agreement.collection <- df0$collection %>% filter(class=="extrajudicial" & type=="agreement") %>%
