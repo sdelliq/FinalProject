@@ -26,7 +26,7 @@ link0 <- list(
 
 
 # Creation of the borrowers table   
-source("borrowers.R")
+source("tables/borrowers.R")
 
 
 
