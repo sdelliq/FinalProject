@@ -1,4 +1,4 @@
-#No sub/cluster has relevant information by year
+#Vienna is all from 2017
 df0$loan %>% mutate(year= as.numeric(format(date.status, "%Y"))) %>% group_by(ptf, cluster.ptf, year) %>% 
   summarise(n= n()) %>% View()
 

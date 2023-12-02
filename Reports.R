@@ -60,7 +60,8 @@ tables$loan_status_ptf <-
 tables$loan_status_updated_ptf <- 
   df0$loan %>% 
   make_table(ptf, status.updated,
-             title="Table_ptf_updated_status")
+             title="Table_ptf_updated_status",
+             gbv.original)
 
 #Loans type
 tables$loan_type_ptf <- 
@@ -69,7 +70,7 @@ tables$loan_type_ptf <-
   make_table(ptf, type,
              title="Table_ptf_type",
              n.loans, gbv.original, gbv.residual, principal)
-
+tables$loan_type_ptf %>% View()
 #Loans vintage
 tables$loan_vintage_ptf <- 
   borrowers %>%
@@ -261,18 +262,18 @@ temp.vars$collections.summary <- bind_rows(
     mutate(class="extrajudicial", type="agreement"), 
   created.tables$ppt.summary %>% 
     select(id.bor, year=year.ppt, amount.expected=amount.ppt, paid, ptf) %>%
-    mutate(class="judicial", type="pdr")
+    mutate(class="judicial", type="ppt")
   )
 
-temp.vars$collections.not.agr.pdr <- temp.vars$collections %>% 
+temp.vars$collections.not.agr.ppt <- temp.vars$collections %>% 
   filter(!id.bor %in% temp.vars$collections.summary$id.bor) %>%
   left_join(df0$loan %>% select(id.bor, id.group, ptf), by=c("id.bor", "id.group")) %>% 
   mutate(year=as.numeric(format(date.first.payment, "%Y"))) %>%
   select(id.bor, class, type, paid, year) %>% 
   distinct()
 
-created.tables$collections.summary <- bind_rows(temp.vars$collections.summary,temp.vars$collections.not.agr.pdr)
-
+created.tables$collections.summary <- bind_rows(temp.vars$collections.summary,temp.vars$collections.not.agr.ppt)
+created.tables$collections.summary %>% View()
 
 # find_duplicates(created.tables$collections.summary, id.bor) %>% group_by(id.bor) %>% filter("judicial" %in% class & "extrajudicial"%in% class) %>% View()
 # there's 34 bors with judicial and extrajudicial info

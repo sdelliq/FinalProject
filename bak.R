@@ -1,4 +1,7 @@
 colSums(is.na(df0$loan))
+
+check_multiple_associations(df0$loan, id.bor) %>% filter(cluster.ptf>1) %>% select(id.bor) %>% 
+  left_join(df0$loan %>% select(id.bor, ptf, cluster.ptf), by="id.bor") %>% View()
 #I wanted to see the loans (when the borrower only has one loan, so I'm sure of which loan we're talking about) but there are only 132, it isn't worth it
 df0$collection %>%
   left_join(df0$loan, by = c("id.bor", "id.group")) %>%

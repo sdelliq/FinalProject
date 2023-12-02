@@ -9,7 +9,7 @@
 temp.vars$breaks <- c(0, 15000, 30000, 50000, 100000, 250000, Inf)
 temp.vars$labels <- c("0-15k", "15-30k", "30-50k", "50-100k", "100-250k", "250k+")
 borrowers <- df0$loan %>% 
-  arrange(gbv.original) %>% 
+  arrange(desc(gbv.original)) %>% 
   group_by(id.bor) %>% 
   summarise(
     n.loans = n(),
@@ -52,7 +52,9 @@ borrowers <- df0$loan %>%
     range.gbv.residual = cut(gbv.residual, breaks = temp.vars$breaks, labels = temp.vars$labels, include.lowest = TRUE),
     range.gbv.original = cut(gbv.original, breaks = temp.vars$breaks, labels = temp.vars$labels, include.lowest = TRUE),
     vintage = year(today()) - year(date.status),  # Calculate vintage
-    range.vintage = cut(vintage, breaks = c(0, 1, 2, 3, 6, 11, 21, Inf),  labels = c("0y", "1y", "2y", "3-5y", "6-10y", "11-20y", "20+"), include.lowest = TRUE),
+    range.vintage = cut(vintage, breaks = c(0, 1, 2, 3, 6, 11, 21, Inf),  
+                        labels = c("0y", "1y", "2y", "3-5y", "6-10y", "11-20y", "20+"), 
+                        include.lowest = TRUE),
 
     super.originator = case_when(
       str_detect(originator, "vela obg srl") ~ "vela obg srl",
