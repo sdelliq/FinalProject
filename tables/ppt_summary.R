@@ -54,12 +54,17 @@ temp.vars$ppt.summary <- df0$ppt.summary %>% left_join(temp.vars$ppt.collection 
 #19 different cases. I still have 28 closed, but I now have 68 active instead of 85 and 52 failed instead of 35. I take them, they make sense
 temp.vars$ppt.summary <- temp.vars$ppt.summary %>% select(-status, status=status.calculated)
 
-#I take the cluster from loans (I know each borrower only exists in one ptf)
+#I take the ptf and cluster from loans 
 temp.vars$ppt.loan <- temp.vars$ppt.summary %>% select(id.ppt, id.bor, id.group) %>%
-  left_join(df0$loan %>% select(id.bor, id.group, ptf), by=c("id.bor", "id.group")) %>% 
+  left_join(df0$loan %>% select(id.bor, id.group, ptf, cluster.ptf, gbv.original), by=c("id.bor", "id.group")) %>%
+  #I have 6 borrowers that could be from amadeus or salieri. I'll assume it's the one with the highest $
+  arrange(desc(gbv.original)) %>%
   group_by(id.ppt) %>% summarise(
-    ptf=first(ptf)
+    across(c(ptf, cluster.ptf, gbv.original), first),
+    .groups="drop"
   )
-temp.vars$ppt.summary <- temp.vars$ppt.summary %>% left_join(temp.vars$ppt.loan, by="id.ppt")
+temp.vars$ppt.summary <- temp.vars$ppt.summary %>% left_join(temp.vars$ppt.loan, by="id.ppt") %>%
+  mutate(gbv.original= ifelse(gbv.original==0, amount.ppt * 1.5, gbv.original))
 
 created.tables$ppt.summary <- temp.vars$ppt.summary
+

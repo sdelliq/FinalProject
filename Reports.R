@@ -223,13 +223,13 @@ source("tables/ppt_summary.R") #creation of temp.vars$ppt_summary with analysis 
 #### -- PPT summary tables creation --####
 tables$ppt.status <- 
   temp.vars$ppt.summary %>%
-  make_table(ptf, status,
+  make_table(cluster.ptf, status,
                      "Table_PPT_Status",
                      amount.ppt, paid, residual)
 
 tables$ppt.range.amount <- 
   temp.vars$ppt.summary %>%
-  make_table_one_var(range.amount.ppt,
+  make_table(cluster.ptf, range.amount.ppt,
                      "Table_PPT_Range_Amount",
                      amount.ppt, paid, residual)
 
@@ -258,21 +258,27 @@ temp.vars$collections <- df0$collection %>% group_by(id.bor, id.group, class, ty
 
 temp.vars$collections.summary <- bind_rows(
   created.tables$agreement.summary %>% 
-    select(id.bor, year=year.agreement,gbv.agreement, amount.expected=amount.agreement, paid, ptf) %>%
+    select(id.bor, year=year.agreement,gbv.agreement, amount.expected=amount.agreement, gbv.original, paid, ptf) %>%
     mutate(class="extrajudicial", type="agreement"), 
   created.tables$ppt.summary %>% 
-    select(id.bor, year=year.ppt, amount.expected=amount.ppt, paid, ptf) %>%
+    select(id.bor, year=year.ppt, amount.expected=amount.ppt, gbv.original, paid, ptf) %>%
     mutate(class="judicial", type="ppt")
   )
 
 temp.vars$collections.not.agr.ppt <- temp.vars$collections %>% 
   filter(!id.bor %in% temp.vars$collections.summary$id.bor) %>%
-  left_join(df0$loan %>% select(id.bor, id.group, ptf), by=c("id.bor", "id.group")) %>% 
+  left_join(df0$loan %>% select(id.bor, id.group, ptf, gbv.original), by=c("id.bor", "id.group")) %>% 
   mutate(year=as.numeric(format(date.first.payment, "%Y"))) %>%
-  select(id.bor, class, type, paid, year) %>% 
-  distinct()
+  arrange(desc(gbv.original)) %>%
+  group_by(id.bor) %>% 
+  summarise(
+   across(c(class, type, paid, year, ptf, gbv.original), first)
+  ) 
 
-created.tables$collections.summary <- bind_rows(temp.vars$collections.summary,temp.vars$collections.not.agr.ppt)
+created.tables$collections.summary <- bind_rows(temp.vars$collections.summary,
+                                                temp.vars$collections.not.agr.ppt)
+created.tables$collections.summary <- created.tables$collections.summary %>% 
+  mutate(gbv.original)
 created.tables$collections.summary %>% View()
 
 # find_duplicates(created.tables$collections.summary, id.bor) %>% group_by(id.bor) %>% filter("judicial" %in% class & "extrajudicial"%in% class) %>% View()
@@ -281,12 +287,35 @@ created.tables$collections.summary %>% View()
 
 tables$collections.class.type.ptf <- 
   created.tables$collections.summary %>%
-  #mutate(class.type = paste(class, type, sep = "-")) %>%
   mutate(class.type = ifelse(!is.na(class), paste(class, type, sep = "-"), NA)) %>%
   make_table(ptf, class.type, 
              "Table_Collection_Class_Type_PTF", 
-             gbv.agreement, amount.expected, paid)
-tables$collections.class.type.ptf %>% View()
+             gbv.agreement, amount.expected, paid, gbv.original)
+
+tables$collections.class.year.orchestra <- 
+  created.tables$collections.summary %>%
+  filter(ptf=="orchestra") %>%
+  make_table(year, class, 
+             "Table_Collection_Year_Class_Orchestra", 
+             gbv.agreement, amount.expected, paid, gbv.original) %>% 
+  mutate(cluster=as.character(cluster))
+
+tables$collections.class.year.candia <- 
+  created.tables$collections.summary %>%
+  filter(ptf=="candia") %>%
+  make_table(year, class, 
+             "Table_Collection_Year_Class_Candia", 
+             gbv.agreement, amount.expected, paid, gbv.original)%>% 
+  mutate(cluster=as.character(cluster))
+
+tables$collections.class.year.vienna <- 
+  created.tables$collections.summary %>%
+  filter(ptf=="vienna") %>%
+  make_table(year, class, 
+             "Table_Collection_Year_Class_Vienna", 
+             gbv.agreement, amount.expected, paid, gbv.original)%>% 
+  mutate(cluster=as.character(cluster))
+
 
 tables$collections.class.type <- 
   temp.vars$collections %>%

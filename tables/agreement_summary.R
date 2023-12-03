@@ -60,8 +60,8 @@ temp.vars$agreement.summary <- df0$agreement.summary %>% left_join(temp.vars$agr
     discount = ifelse(gbv.agreement != 0 & gbv.agreement>amount.agreement, 1- amount.agreement/gbv.agreement,0) %>% round(2),
     range.discount = cut(
       discount,
-      breaks = c(0.00, 0.25, 0.5, 0.6, 0.7, Inf),  # Adjusted breaks
-      labels = c("0-25%", "25-50%", "50-60%", "60-70%", "70%+"),
+      breaks = c(0.00, 0.05, 0.25, 0.5, 0.6, 0.7, Inf),  # Adjusted breaks
+      labels = c("0-5%", "5-25%", "25-50%", "50-60%", "60-70%", "70%+"),
       include.lowest = TRUE
     ),
     range.amount = cut(
@@ -86,11 +86,15 @@ temp.vars$agreement.summary <- df0$agreement.summary %>% left_join(temp.vars$agr
 
 #I take the cluster from loans (I know each borrower only exists in one ptf)
 temp.vars$agreement.loan <- temp.vars$agreement.summary %>% select(id.agreement, id.bor, id.group) %>%
-  left_join(df0$loan %>% select(id.bor, id.group, ptf), by=c("id.bor", "id.group")) %>% 
+  left_join(df0$loan %>% select(id.bor, id.group, ptf, gbv.original), by=c("id.bor", "id.group")) %>% 
     group_by(id.agreement) %>% summarise(
-      ptf=first(ptf)
+      ptf=first(ptf),
+      gbv.original=max(gbv.original)
     )
-temp.vars$agreement.summary <- temp.vars$agreement.summary %>% left_join(temp.vars$agreement.loan, by="id.agreement")
+temp.vars$agreement.summary <- temp.vars$agreement.summary %>% 
+  left_join(temp.vars$agreement.loan, by="id.agreement") %>%
+  mutate(gbv.original= ifelse(gbv.original==0, pmax(amount.agreement, gbv.agreement, na.rm=T)*1.5, gbv.original)) 
+#If I don't have the information for the gbv.original I assume it's at least 5% bigger than the gbv.agreement
 
 #temp.vars$agreement.summary %>% View()  
 
