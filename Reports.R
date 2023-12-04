@@ -1,5 +1,5 @@
 tables <- list()
-created.tables <- list()
+
 
 #####-- Loan and borrower level             -####
 # Big totals of the Portfolio 
@@ -19,34 +19,52 @@ tables$totals <- data.frame(
 
 
 #Corporate - individual 
-tables$borrower_type <- 
-  borrowers %>% 
+tables$borrower_type <- borrowers %>% 
   make_table_one_var(x= type.bor, title="Table_TypeBor")
 
 
 #portfoglio, subportafoglio, n(borrowers) and gbvs
-tables$totals_by_ptf <-
-  borrowers %>%
-  make_table(
-    ptf, cluster.ptf,
-    "Table_PTFs_GBV",
-    n.loans, gbv.original, gbv.residual, principal
-  )
+tables$totals_by_ptf <-  borrowers %>%
+  make_table(ptf, cluster.ptf, "Table_PTFs_GBV", n.loans, gbv.original, gbv.residual, principal)
 
-tables$totals_by_originator <-
-  borrowers %>%
-  make_table(
-    super.originator,ptf,
-    "Table_originator_ptf",
-    n.loans, gbv.original, gbv.residual, principal
-  )
+#Originator and portfolio
+tables$totals_by_originator <- borrowers %>%
+  make_table(super.originator,ptf, "Table_originator_ptf",n.loans, gbv.original, gbv.residual, principal)
 
 #GBV ranges with n borrowers and sum gbv.residual
-tables$borrower_gbv <- 
-  borrowers %>% 
-  make_table_one_var(x= range.gbv.residual,
-                     title="Table_GBV_Ranges",
-                     gbv.residual, n.loans)
+tables$borrower_gbv <-   borrowers %>% 
+  make_table_one_var(x= range.gbv.residual, title="Table_GBV_Ranges", gbv.residual, n.loans)
+
+#Orchestra GBV ranges
+tables$orchestra.gbv <-   borrowers %>%  filter(ptf=="orchestra") %>%
+  make_table(cluster.ptf, range.gbv.residual, title="Table_GBV_Ranges_Orchestra", gbv.residual, n.loans)
+
+#Orchestra bad, utp
+tables$orchestra.status <- df0$loan %>% filter(ptf=="orchestra") %>%
+  make_table(cluster.ptf, status, title="Table_Status_Orchestra", gbv.residual)
+
+#Orchestra bad, utp updated
+tables$orchestra.status.updated <- df0$loan %>% filter(ptf=="orchestra") %>%
+  make_table(cluster.ptf, status.updated, title="Table_Status_Updated_Orchestra", gbv.residual)
+ 
+#Vienna solvency
+tables$vienna.status.bor <- borrowers %>% filter(ptf=="vienna") %>%
+  make_table(cluster.ptf, status.bor, title="Table_Status_Vienna", gbv.residual, n.loans)
+
+#Vienna GBV ranges
+tables$vienna.gbv <- borrowers %>% filter(ptf=="vienna") %>%
+  make_table(cluster.ptf, range.gbv.residual, title="Table_GBV_Ranges_Vienna", gbv.residual, n.loans)
+
+#Vienna GBV ranges
+tables$vienna.gbv.small <- borrowers %>% filter(ptf=="vienna") %>%
+  mutate(
+    small.range.gbv.residual = cut(
+      gbv.residual,
+      breaks = c(0, 2500, 5000, 10000, 20000, Inf),  # Adjusted breaks
+      labels = c("0-2.5k", "2.5k-5k", "5k-10k", "10k-15k", "15k+"),
+      include.lowest = TRUE
+    )) %>%
+  make_table(cluster.ptf, small.range.gbv.residual, title="Table_Small_GBV_Ranges_Vienna", gbv.residual, n.loans)
 
 
 #Loans status

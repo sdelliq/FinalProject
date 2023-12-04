@@ -52,7 +52,7 @@ temp.vars$agreement.summary <- df0$agreement.summary %>% left_join(temp.vars$agr
     residual= ifelse(residual<0, 0, amount.agreement - paid),
     amount.agreement = ifelse(residual<0, paid.in.collections, amount.agreement),
     residual= ifelse(residual<0, amount.agreement - paid, residual),
-    date.last.payment = ifelse(date.last.paid>date.last.payment, date.last.paid, date.last.payment),
+    date.last.payment = ifelse(is.na(date.last.payment) | date.last.paid>date.last.payment, date.last.paid, date.last.payment),
     date.last.payment = as.Date(date.last.payment),
     date.end = ifelse(is.na(date.end), date.start %m+% months(length), date.end), #if it's NA I calculate it
     date.end=as.Date(date.end),
@@ -98,5 +98,21 @@ temp.vars$agreement.summary <- temp.vars$agreement.summary %>%
 
 #temp.vars$agreement.summary %>% View()  
 
+temp.vars$dates_to_calculate <- temp.vars$agreement.summary %>%
+  filter(paid > 0 & is.na(date.last.payment)) %>%
+  mutate(payments_made = as.integer(paid / (amount.agreement / n.instalment))) %>%
+  mutate(new_date =  date.start %m+% months(payments_made),
+         new_date = ifelse(new_date>date.cutoff, date.cutoff, new_date)) %>%
+  select(id.agreement, new_date) 
+
+temp.vars$agreement.summary <- temp.vars$agreement.summary  %>%
+  left_join(temp.vars$dates_to_calculate , by = "id.agreement") %>%
+  mutate(date.last.payment = ifelse(is.na(date.last.payment) & !is.na(new_date), new_date, date.last.payment),
+         date.last.payment = as.Date(date.last.payment)) %>%
+  select(-new_date)
+
+
+
 
 created.tables$agreement.summary <- temp.vars$agreement.summary
+

@@ -29,9 +29,10 @@ temp.vars$ppt.summary <- df0$ppt.summary %>% left_join(temp.vars$ppt.collection 
                                                        by = join_by(id.ppt)) %>% 
   mutate(
     paid=ifelse(!is.na(paid.in.collections), paid.in.collections, paid),
-    date.last.payment = ifelse(!is.na(date.last.paid), date.last.paid, date.last.payment),
+    date.last.payment = ifelse(is.na(date.last.payment) | date.last.paid>date.last.payment , date.last.paid, date.last.payment),
     date.last.payment = as.Date(date.last.payment),
     residual =ifelse(residual==0,0,amount.ppt-paid),
+    year.last.payment= as.numeric(format(date.last.payment, "%Y")),
     
     range.amount.ppt = cut(
       amount.ppt,
@@ -65,6 +66,21 @@ temp.vars$ppt.loan <- temp.vars$ppt.summary %>% select(id.ppt, id.bor, id.group)
   )
 temp.vars$ppt.summary <- temp.vars$ppt.summary %>% left_join(temp.vars$ppt.loan, by="id.ppt") %>%
   mutate(gbv.original= ifelse(gbv.original==0, amount.ppt * 1.5, gbv.original))
+
+
+
+temp.vars$dates_to_calculate <- temp.vars$ppt.summary %>%
+  filter(paid > 0 & is.na(date.last.payment)) %>%
+  mutate(payments_made = as.integer(paid / (amount.ppt / n.instalment))) %>%
+  mutate(new_date =  date.start %m+% months(payments_made),
+         new_date = ifelse(new_date>date.cutoff, date.cutoff, new_date)) %>%
+  select(id.ppt, new_date) 
+
+temp.vars$ppt.summary <- temp.vars$ppt.summary  %>%
+  left_join(temp.vars$dates_to_calculate , by = "id.ppt") %>%
+  mutate(date.last.payment = ifelse(is.na(date.last.payment) & !is.na(new_date), new_date, date.last.payment),
+         date.last.payment = as.Date(date.last.payment)) %>%
+  select(-new_date)
 
 created.tables$ppt.summary <- temp.vars$ppt.summary
 
