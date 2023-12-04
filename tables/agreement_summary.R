@@ -86,7 +86,7 @@ temp.vars$agreement.summary <- df0$agreement.summary %>% left_join(temp.vars$agr
 
 #I take the cluster from loans (I know each borrower only exists in one ptf)
 temp.vars$agreement.loan <- temp.vars$agreement.summary %>% select(id.agreement, id.bor, id.group) %>%
-  left_join(df0$loan %>% select(id.bor, id.group, ptf, gbv.original), by=c("id.bor", "id.group")) %>% 
+  left_join(df0$loan %>% select(id.bor, id.group, ptf, gbv.original), by=c("id.bor", "id.group"), relationship = "many-to-many") %>% 
     group_by(id.agreement) %>% summarise(
       ptf=first(ptf),
       gbv.original=max(gbv.original)

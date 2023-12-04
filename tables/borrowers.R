@@ -8,7 +8,7 @@
 #Vars to group based on the previous check -> 1370536 is in two portfolios <- I'm keeping both cases
 temp.vars$breaks <- c(0, 15000, 30000, 50000, 100000, 250000, Inf)
 temp.vars$labels <- c("0-15k", "15-30k", "30-50k", "50-100k", "100-250k", "250k+")
-borrowers <- df0$loan %>% 
+created.tables$borrowers <- df0$loan %>% 
   arrange(desc(gbv.original)) %>% 
   group_by(id.bor) %>% 
   summarise(
