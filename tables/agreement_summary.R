@@ -58,10 +58,11 @@ temp.vars$agreement.summary <- df0$agreement.summary %>% left_join(temp.vars$agr
     date.end=as.Date(date.end),
       
     discount = ifelse(gbv.agreement != 0 & gbv.agreement>amount.agreement, 1- amount.agreement/gbv.agreement,0) %>% round(2),
+    #quantile(created.tables$agreement.summary$discount, probs = c(0.25, 0.5, 0.75),na.rm = T)
     range.discount = cut(
       discount,
-      breaks = c(0.00, 0.05, 0.25, 0.5, 0.6, 0.7, Inf),  # Adjusted breaks
-      labels = c("0-5%", "5-25%", "25-50%", "50-60%", "60-70%", "70%+"),
+      breaks = c(0.00, 0.05, 0.2, 0.5, Inf),  # Adjusted breaks
+      labels = c("0-5%", "5-20%", "20-50%", "50%+"),
       include.lowest = TRUE
     ),
     range.amount = cut(
