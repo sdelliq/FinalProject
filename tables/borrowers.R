@@ -29,8 +29,10 @@ created.tables$borrowers <- df0$loan %>%
   left_join(link0$counterparty.entity, by="id.counterparty", relationship = "many-to-many") %>%
   
   left_join(df0$entity %>% 
-              mutate(status.bor=coalesce(status.pg, solvency.pf)) %>% 
-              select(id.entity, type.bor=type.subject, status.bor, province, region, area, solvency.pf), 
+              mutate(status.bor=coalesce(status.pg, solvency.pf),
+                     range.age= as.character(range.age),
+                     age.range= ifelse(age<65, "65-", range.age)) %>% 
+              select(id.entity, type.bor=type.subject, status.bor, province, region, area, solvency.pf, age.range), 
             by="id.entity") %>%
   select(-id.entity, -id.counterparty) %>% 
   distinct() %>%
@@ -40,7 +42,7 @@ created.tables$borrowers <- df0$loan %>%
     "individual" %in% type.bor ~ "individual",
     TRUE ~ first(type.bor)  # Use the first value if conditions are not met
   )) %>%
-  arrange(factor(status.bor, levels=c("deceased", "pensioner", "employee - permanent", "employee - n/a", "employee - temporary", "real estate", "self employed", "insolvent",
+  arrange(factor(status.bor, levels=c("pensioner", "employee - permanent", "employee - n/a", "employee - temporary", "real estate", "self employed", "insolvent", "deceased",
                                       "canceled","ceased","inactive","bankruptcy","liquidation", "insolvency", "other", "active"))) %>%
   mutate(
     status.bor= as.character(status.bor),
@@ -61,5 +63,29 @@ created.tables$borrowers <- df0$loan %>%
       str_detect(originator, "bnl") ~ "bnl",
       str_detect(originator, "bnp paribas sa") ~ "bnp paribas sa",
       TRUE ~ as.character(originator)
+    ),
+    
+    super.status.bor = case_when(
+      status.bor == "deceased" | status.bor == "insolvent" ~ "insolvent",
+      str_detect(status.bor, "employee") ~ "employees",
+      status.bor == "pensioner" ~ "pensioners",
+      status.bor == "real estate" | status.bor == "self employed" ~ "partially solvent",
+      status.bor == "canceled" | status.bor == "ceased" | status.bor == "inactive" ~ "non-attive",
+      status.bor == "bankruptcy" | status.bor == "liquidation" | status.bor == "insolvency" ~ "procedura concorsuale",
+      status.bor == "active"  ~ "attive",
+      TRUE ~ "unknown" 
+    ),
+    detail.status.bor = case_when(
+      status.bor == "deceased" ~ status.bor,
+      status.bor == "insolvent" ~ "unemployed",
+      status.bor == "employee - temporary" ~ "temporary",
+      status.bor == "employee - n/a" ~ "unknown",
+      status.bor == "employee - permanent" ~ "permanent",
+      status.bor == "pensioner" ~ age.range, 
+      status.bor == "real estate" | status.bor == "self employed" ~ status.bor,
+      status.bor == "canceled" | status.bor == "ceased" | status.bor == "inactive" ~ status.bor,
+      status.bor == "bankruptcy" | status.bor == "liquidation" | status.bor == "insolvency" ~ status.bor,
+      status.bor == "active"  ~ status.bor,
+      TRUE ~ "unknown" 
     )
   )
