@@ -7,7 +7,7 @@ temp.vars$ppt.collection <- df0$collection %>% filter(type=="ppt") %>%
   summarise(
     across(c(amount.ppt, year.ppt, status, residual, paid), first),
     paid.in.collections= ifelse(multiple.ppts==TRUE ,
-                                sum(amount[date>date.agreement & date<=date.last.payment]), #Usually then there are two status, one failed or closedand I can take the date of the last.payment 
+                                sum(amount[date>date.agreement & date<=date.last.payment]), #Usually when there are two status, one failed or closed and I can take the date of the last.payment 
                                 sum(amount)),
     date.last.paid=max(date.ppt),
     .groups = "drop"
@@ -68,7 +68,7 @@ temp.vars$ppt.summary <- temp.vars$ppt.summary %>% left_join(temp.vars$ppt.loan,
   mutate(gbv.original= ifelse(gbv.original==0, amount.ppt * 1.5, gbv.original))
 
 
-
+#I calculate the date.last.payment then I have enough info
 temp.vars$dates_to_calculate <- temp.vars$ppt.summary %>%
   filter(paid > 0 & is.na(date.last.payment)) %>%
   mutate(payments_made = as.integer(paid / (amount.ppt / n.instalment))) %>%
