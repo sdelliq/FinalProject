@@ -148,6 +148,20 @@ tables$agrement.status.discount <- created.tables$agreement.summary %>%
 tables$agrement.amountRange <- created.tables$agreement.summary %>%
   make_table_one_var(range.amount, "Table_Agreement_amountRange", gbv.agreement, amount.agreement, paid, n.instalment)
 
+#They're all borrowers
+#there's a many to many relationship but since I'm not gonna use it, idc
+tables$paying.pdr.guarantor.borrower <- created.tables$agreement.summary %>%
+  left_join(df0$counterparty %>% select(id.counterparty, role), by="id.counterparty") %>% 
+  make_table(ptf, role, "Table_Role_PDR", amount.agreement, paid, residual)
+
+#If it's dead that's probably why it stopped paying
+#I only have 7 failed dead
+tables$pdr.dead <- created.tables$agreement.summary %>%
+  left_join(link0$counterparty.entity, by="id.counterparty") %>%
+  left_join(df0$entity %>% select(id.entity, solvency.pf), by="id.entity") %>% 
+  make_table(status, solvency.pf, "Table_PDR_Status_Solvency", amount.agreement, paid, residual)
+tables$pdr.dead %>% View()
+
 
 #### -- PPT summary pre-analysis            --####
 source("tables/ppt_summary.R") #creation of temp.vars$ppt_summary with analysis detailed
@@ -162,6 +176,18 @@ tables$ppt.range.amount <- created.tables$ppt.summary %>%
 tables$ppt.year <- created.tables$ppt.summary %>%
   make_table_one_var(year.ppt, "Table_PPT_Year", amount.ppt, paid, residual) %>% 
   mutate(cluster= as.character(cluster))
+
+#They're all Vienna's borrowers
+tables$paying.guarantor.borrower <- created.tables$ppt.summary %>%
+  left_join(link0$counterparty.entity, "id.entity") %>%
+  left_join(df0$counterparty %>% select(id.counterparty, role), by="id.counterparty") %>% 
+  make_table_one_var(role, "Table_Role", amount.ppt, paid, residual)
+  
+#If it's insolvent that's probably why it stopped paying
+#I only have 5 failed insolvent
+tables$ppt.insolvent <- created.tables$ppt.summary %>%
+  left_join(df0$entity %>% select(id.entity, solvency.pf), by="id.entity") %>%
+  make_table(status, solvency.pf, "Table_PPT_Status_Solvency", amount.ppt, paid, residual)
 
 
 #### -- Collections  ###########
@@ -191,7 +217,41 @@ tables$collections.amountRange <-  temp.vars$collections %>%
 
 
 
+#Solvency_pf and PDR/PPT status
+tables$collections.solvency_status.vienna <- created.tables$collections.summary %>%filter(ptf=="vienna") %>% 
+  left_join(created.tables$borrowers %>% select(id.bor, super.status.bor), by="id.bor") %>% 
+  make_table(status, super.status.bor, "Table_Collection_Solvency_Status_Vienna", gbv.agreement, amount.expected, paid, gbv.original)
 
+#Solvency_pf and discounts 
+#Doing it with the super.status.bor there's really no difference for each status. Only when the discount is +50% it's for more insolvents than solvents
+#Doing it for status.bor intead of super.status.bor doesn't really make much difference, so it's not worth it
+tables$collections.solvency_discount.vienna <- created.tables$agreement.summary %>%filter(ptf=="vienna") %>% 
+  left_join(created.tables$borrowers %>% select(id.bor, super.status.bor), by="id.bor") %>% 
+  make_table(range.discount, super.status.bor, "Table_Collection_Solvency_Discount_Vienna", gbv.agreement, amount.agreement, paid, gbv.original)
+
+
+tables$collections.solvency_detail.vienna <- created.tables$collections.summary %>%filter(ptf=="vienna") %>% 
+  left_join(created.tables$borrowers %>% select(id.bor, super.status.bor, detail.status.bor), by="id.bor") %>% 
+  make_table(super.status.bor, detail.status.bor, "Table_Collection_Solvency_Detail_Vienna", gbv.agreement, amount.expected, paid, gbv.original)
+
+tables$collections.solvency_detail.orchestra <- created.tables$collections.summary %>%filter(ptf=="orchestra") %>% 
+  left_join(created.tables$borrowers %>% select(id.bor, super.status.bor, detail.status.bor), by="id.bor") %>% 
+  make_table(super.status.bor, detail.status.bor, "Table_Collection_Solvency_Detail_orchestra", gbv.agreement, amount.expected, paid, gbv.original)
+
+tables$collections.solvency_detail.candia <- created.tables$collections.summary %>%filter(ptf=="candia") %>% 
+  left_join(created.tables$borrowers %>% select(id.bor, super.status.bor, detail.status.bor), by="id.bor") %>% 
+  make_table(super.status.bor, detail.status.bor, "Table_Collection_Solvency_Detail_candia", gbv.agreement, amount.expected, paid, gbv.original)
+
+
+
+#Why did they stop payint? PPT → Insolvent | PDR → Dead
+
+
+
+#### -- Extra tables ####
+created.tables$borrowers %>% filter(ptf=="candia", type.bor=="corporate") %>% 
+  group_by(super.status.bor) %>% 
+  summarise(n.borrowers = n_distinct(id.bor), sumGBV= sum(gbv.residual)) %>% View()
 
 #####
 
