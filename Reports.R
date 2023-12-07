@@ -244,8 +244,33 @@ tables$collections.solvency_detail.candia <- created.tables$collections.summary 
 
 
 
-#Why did they stop payint? PPT → Insolvent | PDR → Dead
+#####
+temp.vars$collections.for.graph <- df0$collection %>% 
+  left_join(created.tables$borrowers %>% select(id.bor, id.group, ptf), by=c("id.bor", "id.group")) %>%
+  mutate(month_year = format(date, "%Y-%m")) %>% 
+  group_by(month_year, class, ptf) %>% 
+  summarise(total_amount = sum(amount), .groups="drop") 
 
+ggplot(temp.vars$collections.for.graph %>%  filter(ptf=="vienna"), aes(x = as.Date(paste0(month_year, "-01")), y = total_amount, color=class)) +
+  geom_line() +
+  labs(x = "Date", y = "Amount", title = "Vienna's Collections by Class Over Time") +
+  scale_x_date(date_labels = "%Y-%m", date_breaks = "6 month") +
+  scale_y_continuous(labels = label_number())+
+  theme_minimal()
+
+ggplot(temp.vars$collections.for.graph %>%  filter(ptf=="orchestra"), aes(x = as.Date(paste0(month_year, "-01")), y = total_amount, color=class)) +
+  geom_line() +
+  labs(x = "Date", y = "Amount", title = "Orchestra's Collections by Class Over Time") +
+  scale_x_date(date_labels = "%Y-%m", date_breaks = "6 month") +
+  scale_y_continuous(labels = label_number())+
+  theme_minimal()
+
+ggplot(temp.vars$collections.for.graph %>%  filter(ptf=="candia"), aes(x = as.Date(paste0(month_year, "-01")), y = total_amount, color=class)) +
+  geom_line() +
+  labs(x = "Date", y = "Amount", title = "Candia's Collections by Class Over Time") +
+  scale_x_date(date_labels = "%Y-%m", date_breaks = "6 month") +
+  scale_y_continuous(labels = label_number())+
+  theme_minimal()
 
 
 #### -- Extra tables ####
